@@ -48,7 +48,7 @@
         for (i = 0, ii = params.length; i < ii; ++i) {
             query = params[i];
 
-            if (this.matches(o, query, key)) {
+            if (this._matches(o, query, key)) {
                 return true;
             }
         }
@@ -62,7 +62,7 @@
         for (i = 0, ii = params.length; i < ii; ++i) {
             query = params[i];
 
-            if (!this.matches(o, query, key)) {
+            if (!this._matches(o, query, key)) {
                 return false;
             }
         }
@@ -71,7 +71,7 @@
     }
 
     function $not() {
-        return !this.matches.apply(this, arguments);
+        return !this._matches.apply(this, arguments);
     }
 
     function $exists(o, value, key) {
@@ -124,9 +124,10 @@
         //$rename: $rename
     };
 
-    function Mendo(queryOperators, updateOperators) {
-        this.queryOperators = extend(defaultQueryOperators, queryOperators);
-        this.updateOperators = extend(defaultUpdateOperators, updateOperators);
+    function Mendo(context, queryOperators, updateOperators) {
+        this.context = context;
+        this._queryOperators = extend(defaultQueryOperators, queryOperators);
+        this._updateOperators = extend(defaultUpdateOperators, updateOperators);
     }
 
     function resolveAndGet(obj, ref) {
@@ -175,12 +176,13 @@
         return cur[ref[lastIndex]] = value;
     }
 
-    Mendo.prototype.find = function(doc, query) {
+    Mendo.prototype.find = function(query) {
         var i, ii,
+            doc = this.context,
             out = [];
 
         for (i = 0, ii = doc.length; i < ii; ++i) {
-            if (this.matches(doc[i], query)) {
+            if (this._matches(doc[i], query)) {
                 out.push(doc[i]);
             }
         }
@@ -188,11 +190,12 @@
         return out;
     }
 
-    Mendo.prototype.findOne = function(doc, query) {
-        var i, ii;
+    Mendo.prototype.findOne = function(query) {
+        var i, ii,
+            doc = this.context;
 
         for (i = 0, ii = doc.length; i < ii; ++i) {
-            if (this.matches(doc[i], query)) {
+            if (this._matches(doc[i], query)) {
                 return doc[i];
             }
         }
@@ -200,10 +203,10 @@
         return null;
     }
 
-    Mendo.prototype.update = function(doc, query, obj) {
+    Mendo.prototype.update = function(query, obj) {
         // TODO: finish implementing this method
 
-        var records = this.find(doc, query),
+        var records = this.find(query),
             record,
             prop,
             i, ii;
@@ -212,8 +215,8 @@
             record = records[i];
 
             for (prop in obj) {
-                if (prop in this.updateOperators) {
-                    this.updateOperators[prop].call(this, record, obj[prop]);
+                if (prop in this._updateOperators) {
+                    this._updateOperators[prop].call(this, record, obj[prop]);
                 }
             }
         }
@@ -221,16 +224,16 @@
         return records;
     }
 
-    Mendo.prototype.matches = function(object, query, key) {
+    Mendo.prototype._matches = function(object, query, key) {
         var prop;
 
         for (prop in query) {
-            if (prop in this.queryOperators) {
-                if (!this.queryOperators[prop].call(this, object, query[prop], key)) {
+            if (prop in this._queryOperators) {
+                if (!this._queryOperators[prop].call(this, object, query[prop], key)) {
                     return false;
                 }
             } else if (isObject(query[prop])) {
-                return this.matches(object, query[prop], prop);
+                return this._matches(object, query[prop], prop);
             } else if (resolveAndGet(object, prop) !== query[prop]) {
                 return false;
             }
@@ -240,7 +243,9 @@
     }
 
     // Mendo default instance!
-    this.mendo = new Mendo;
+    this.mendo = function(context, queryOperators, updateOperators) {
+        return new Mendo(context, queryOperators, updateOperators);
+    };
 
     // Put it on the namespace because victory
     this.mendo.Mendo = Mendo;
