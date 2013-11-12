@@ -249,4 +249,4 @@
 
     // Put it on the namespace because victory
     this.mendo.Mendo = Mendo;
-}).call(this);
+}).call(typeof exports == 'undefined' ? this : exports);
