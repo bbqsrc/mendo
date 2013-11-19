@@ -23,6 +23,12 @@
         return Object.prototype.toString.call(o) == "[object Object]";
     }
 
+    if (!Array.isArray) {
+        Array.isArray = function isArray(o) {
+            return Object.prototype.toString.call(o) == "[object Array]";
+        }
+    }
+
     function extend(/* varargs */) {
         var out = {},
             i, ii, o, prop;
@@ -48,7 +54,7 @@
         for (i = 0, ii = params.length; i < ii; ++i) {
             query = params[i];
 
-            if (this._matches(o, query, key)) {
+            if (this.matches(o, query, key)) {
                 return true;
             }
         }
@@ -62,7 +68,7 @@
         for (i = 0, ii = params.length; i < ii; ++i) {
             query = params[i];
 
-            if (!this._matches(o, query, key)) {
+            if (!this.matches(o, query, key)) {
                 return false;
             }
         }
@@ -71,7 +77,59 @@
     }
 
     function $not() {
-        return !this._matches.apply(this, arguments);
+        return !this.matches.apply(this, arguments);
+    }
+
+    function $ne(o, value, key) {
+        return resolveAndGet(o, key) !== value;
+    }
+
+    function $in(o, params, key, nin) {
+        var i, ii, j, jj,
+            target = resolveAndGet(o, key);
+
+        if (!Array.isArray(target)) {
+            return false;
+        }
+
+        for (i = 0, ii = params.length; i < ii; ++i) {
+            if (params[i] instanceof RegExp) {
+                for (j = 0, jj = target.length; i < ii; ++i) {
+                    if (params[i].test(target[j])) {
+                        return !nin;
+                    }
+                }
+            } else if (target.indexOf(params[i]) > -1) {
+                return !nin;
+            }
+
+        }
+
+        return !!nin;
+    }
+
+    function $nin(o, params, key) {
+        return $in(o, params, key, true);
+    }
+
+    function $gt(o, value, key) {
+        var v = resolveAndGet(o, key);
+        return v != null && v > value;
+    }
+
+    function $gte(o, value, key) {
+        var v = resolveAndGet(o, key);
+        return v != null && v >= value;
+    }
+
+    function $lt(o, value, key) {
+        var v = resolveAndGet(o, key);
+        return v != null && v < value;
+    }
+
+    function $lte(o, value, key) {
+        var v = resolveAndGet(o, key);
+        return v != null && v <= value;
     }
 
     function $exists(o, value, key) {
@@ -92,6 +150,24 @@
             resolveAndSet(o, prop, obj[prop]);
         }
     }
+
+    function $inc(o, obj) {
+        var prop;
+
+        for (prop in obj) {
+            resolveAndSet(o, prop, resolveAndGet(o, prop) + obj[prop]);
+        }
+    }
+
+    function $push(o, obj) {
+        var prop;
+
+        for (prop in obj) {
+            resolveAndGet(o, prop).push(obj[prop]);
+        }
+    }
+
+    $push.modifiers = ['$each', '$sort', '$slice'];
 
     /* XXX: needs to be updated to use resolvers
     function $rename(o, obj) {
@@ -115,12 +191,21 @@
         $or: $or,
         $and: $and,
         $not: $not,
+        $ne: $ne,
+        $gt: $gt,
+        $gte: $gte,
+        $lt: $lt,
+        $lte: $lte,
+        $in: $in,
+        $nin: $nin,
         $exists: $exists,
         $where: $where
     };
 
     var defaultUpdateOperators = {
-        $set: $set//,
+        $set: $set,
+        $push: $push,
+        $inc: $inc//,
         //$rename: $rename
     };
 
@@ -182,7 +267,7 @@
             out = [];
 
         for (i = 0, ii = doc.length; i < ii; ++i) {
-            if (this._matches(doc[i], query)) {
+            if (this.matches(doc[i], query)) {
                 out.push(doc[i]);
             }
         }
@@ -195,7 +280,7 @@
             doc = this.context;
 
         for (i = 0, ii = doc.length; i < ii; ++i) {
-            if (this._matches(doc[i], query)) {
+            if (this.matches(doc[i], query)) {
                 return doc[i];
             }
         }
@@ -224,7 +309,7 @@
         return records;
     }
 
-    Mendo.prototype._matches = function(object, query, key) {
+    Mendo.prototype.matches = function(object, query, key) {
         var prop;
 
         for (prop in query) {
@@ -233,7 +318,8 @@
                     return false;
                 }
             } else if (isObject(query[prop])) {
-                return this._matches(object, query[prop], prop);
+                //console.log(object, query[prop], prop);
+                return this.matches(object, query[prop], prop);
             } else if (resolveAndGet(object, prop) !== query[prop]) {
                 return false;
             }

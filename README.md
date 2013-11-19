@@ -10,12 +10,23 @@ Use the `mendo` method to wrap an array. The resultant object has a `find`, `fin
 
 ### Supported Operators
 
-* $and
+#### Query Operators
+
 * $or
+* $and
 * $not
+* $ne
+* $gt
+* $gte
+* $lt
+* $lte
+* $in
+* $nin
 * $exists
 * $where
 
 #### Update Operators
 
 * $set
+* $push
+* $inc
